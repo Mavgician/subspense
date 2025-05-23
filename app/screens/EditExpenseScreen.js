@@ -1,10 +1,11 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { ExpenseContext } from '../context/ExpenseContext';
 import { useNavigation } from '@react-navigation/native';
+import React, { useContext, useEffect, useState } from 'react';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ExpenseContext } from '../context/ExpenseContext';
+import { supabase } from '../scripts/supabase';
 
 export default function EditExpenseScreen() {
-  const { editingExpense, updateExpense } = useContext(ExpenseContext);
+  const { editingExpense } = useContext(ExpenseContext);
   const navigation = useNavigation();
 
   const [title, setTitle] = useState('');
@@ -17,23 +18,24 @@ export default function EditExpenseScreen() {
       setCategory(editingExpense.category);
       setAmount(editingExpense.amount.toString());
     }
+
   }, [editingExpense]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title || !amount) {
       Alert.alert('Error', 'Please fill in all fields.');
       return;
     }
 
-    const updated = {
-      ...editingExpense,
-      title,
-      category,
-      amount: parseFloat(amount),
-    };
+    const { data, error } = await supabase.rpc('update_user_expense', { p_expense_id: editingExpense.id, p_new_amount: amount, p_new_category: category, p_new_title: title })
+    
+    if (data) {
+      navigation.goBack();
+    }
 
-    updateExpense(updated);
-    navigation.goBack();
+    if (error) {
+      Alert.alert('Error', error.message)
+    }
   };
 
   return (
@@ -78,7 +80,7 @@ export default function EditExpenseScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#fff' },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20,  marginTop: 40 },
+  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, marginTop: 40 },
   label: {
     fontSize: 16,
     fontWeight: '600',

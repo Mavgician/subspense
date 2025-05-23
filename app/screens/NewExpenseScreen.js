@@ -1,35 +1,38 @@
-import React, { useState, useContext } from 'react';
-import {
-  View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView
-} from 'react-native';
-import { ExpenseContext } from '../context/ExpenseContext';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons'; // For check icon
+import { useNavigation } from '@react-navigation/native';
+import React, { useState } from 'react';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text, TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { supabase } from '../scripts/supabase';
 
 export default function NewExpenseScreen() {
-  const { addExpense } = useContext(ExpenseContext);
   const navigation = useNavigation();
 
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
 
-  const handleAddExpense = () => {
-    if (!title || !amount) {
-      console.log('Please fill in all fields!');
+  const handleAddExpense = async () => {
+    if (!title || !amount || !category) {
+      Alert.alert('Check fields', 'Please fill in all fields!');
       return;
     }
 
-    const newExpense = {
-      id: Date.now().toString(),
-      title,
-      category,
-      amount: parseFloat(amount),
-      date: new Date()
-    };
+    const { data, error } = await supabase.rpc('add_user_expense', {p_amount: amount, p_category: category, p_title: title})
 
-    addExpense(newExpense);
-    navigation.navigate('HomeTabs');
+    if (data) {
+      navigation.navigate('HomeTabs');
+    }
+
+    if (error) {
+      Alert.alert('Error', error.message)
+    }
   };
 
   const handleNumberPress = (num) => {

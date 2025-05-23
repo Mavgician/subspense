@@ -1,20 +1,27 @@
-import React, { useContext, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Modal } from 'react-native';
-import { ExpenseContext } from '../context/ExpenseContext';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import React, { useContext, useEffect, useState } from 'react';
+import { Alert, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ExpenseContext } from '../context/ExpenseContext';
+import { supabase } from '../scripts/supabase';
 
 export default function TransactionHistoryScreen() {
-  const { expenses, deleteExpense, setEditingExpense } = useContext(ExpenseContext);
+  const { setEditingExpense } = useContext(ExpenseContext);
   const navigation = useNavigation();
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState(null);
 
+  const [expenses, setExpenses] = useState();
+
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const options = { day: 'numeric', month: 'long', year: 'numeric' };
-    return date.toLocaleDateString('en-US', options);
+    const dateObject = new Date(dateString);
+    const formattedDate = dateObject.toLocaleDateString(undefined, { // undefined uses system locale
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    return formattedDate
   };
 
   const handleDelete = (id) => {
@@ -22,9 +29,17 @@ export default function TransactionHistoryScreen() {
     setIsModalVisible(true); // Show the modal when delete button is pressed
   };
 
-  const confirmDelete = () => {
-    deleteExpense(expenseToDelete);
-    setIsModalVisible(false);
+  const confirmDelete =  async () => {
+    const { data, error } = await supabase.rpc('delete_user_expense', { p_expense_id: expenseToDelete })
+
+    if (data) {
+      setIsModalVisible(false);
+    }
+
+    if (error) {
+      Alert.alert('Error', error.message)
+    }
+    
   };
 
   const cancelDelete = () => {
@@ -35,6 +50,16 @@ export default function TransactionHistoryScreen() {
     setEditingExpense(expense);
     navigation.navigate('EditExpense');
   };
+
+  useEffect(() => {
+    const setup = async () => {
+      const { data, error } = await supabase.rpc('get_user_expenses')
+
+      setExpenses(data)
+    }
+
+    setup()
+  });
 
   return (
     <View style={styles.container}>
@@ -49,13 +74,13 @@ export default function TransactionHistoryScreen() {
       {/* Expense List */}
       <FlatList
         data={expenses}
-        keyExtractor={(item) => item.id.toString()}  
+        keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <View style={styles.item}>
             {/* Category and Date */}
             <View style={styles.row}>
               <Text style={styles.category}>{item.category || 'No category'}</Text>
-              <Text style={styles.date}>{formatDate(item.date)}</Text>
+              <Text style={styles.date}>{formatDate(item.created_at)}</Text>
             </View>
 
             {/* Title and Amount */}
@@ -105,8 +130,8 @@ export default function TransactionHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     padding: 20,
     paddingTop: 40,
     backgroundColor: '#f8f8f8',
@@ -124,9 +149,9 @@ const styles = StyleSheet.create({
     elevation: 2,
     marginTop: 20,
   },
-  title: { 
-    fontSize: 24, 
-    fontWeight: 'bold', 
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
     color: '#333',
     marginTop: 20,
   },

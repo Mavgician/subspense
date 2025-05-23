@@ -4,9 +4,23 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
 import { supabase } from '../scripts/supabase';
 
+function formatDate(date) {
+  const dateObject = new Date(date);
+  const correctDateString = dateObject.toLocaleDateString(undefined, { // undefined uses system locale
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  return correctDateString
+}
+
 export default function ProfileScreen({ navigation, route }) {
   const [name, setName] = useState('User');
   const [email, setEmail] = useState('sample.account@gmail.com');
+  const [balance, setBalance] = useState(0);
+  const [createdAt, setCreatedAt] = useState('');
+  const [latestExpenseDate, setLatestExpenseDate] = useState('');
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -24,24 +38,24 @@ export default function ProfileScreen({ navigation, route }) {
 
   useEffect(() => {
     const setup = async () => {
-      const { data, error } = await supabase.rpc('get_current_user_profile')
+      const { data: user, error } = await supabase.rpc('get_current_user_profile').single()
+      const { data: latestExpenseDate, error: latestExpenseError } = await supabase.rpc('get_latest_expense_date').single()
 
-      const user = data[0]
-
-      console.log(user)
-
-      if (error) {
-        console.error(error);
+      if (error || latestExpenseError) {
+        console.error(error.message ?? latestExpenseError.message);
       }
 
-      if (data) {
+      if (user && latestExpenseDate) {
         setEmail(user.profile_email);
         setName(user.profile_username);
+        setBalance(user.current_balance)
+        setCreatedAt(formatDate(user.created_at))
+        setLatestExpenseDate(formatDate(latestExpenseDate))
       }
     }
 
     setup()
-  }, [route.params]);
+  });
 
   return (
     <View style={styles.container}>
@@ -57,23 +71,11 @@ export default function ProfileScreen({ navigation, route }) {
         <Text style={styles.editButtonText}>Edit Profile</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.editButton}
-        onPress={async () => {
-          const { data, error } = await supabase.rpc('get_current_user_profile')
-          const user = data[0]
-
-          console.log(data, error)
-        }}
-      >
-        <Text style={styles.editButtonText}>test</Text>
-      </TouchableOpacity>
-
       <View style={styles.detailsBox}>
         <Text style={styles.detailsTitle}>Details</Text>
-        <Text>Current Balance: ₱0.00</Text>
-        <Text>Last Expense Added: No recent expense</Text>
-        <Text>Account Created: April 25, 2025</Text>
+        <Text>Current Balance: ₱{balance.toFixed(2)}</Text>
+        <Text>Last Expense Added: {latestExpenseDate ?? 'No recent expense'}</Text>
+        <Text>Account Created: {createdAt}</Text>
       </View>
 
       {/* Full width logout button */}

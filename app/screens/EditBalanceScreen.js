@@ -1,7 +1,7 @@
 // EditBalanceScreen.js
 import { Ionicons } from '@expo/vector-icons'; // For check icon
 import { useNavigation } from '@react-navigation/native';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -11,36 +11,53 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ExpenseContext } from '../context/ExpenseContext'; // Adjust path if needed
+import { supabase } from '../scripts/supabase';
 
 export default function EditBalanceScreen() {
   // Assume context provides current balance and a function to set it
-  const { balance, setBalance } = useContext(ExpenseContext);
   const navigation = useNavigation();
 
   const [newBalanceString, setNewBalanceString] = useState('');
+  const [balance, setBalance] = useState(0);
 
-  // Optionally, pre-fill the input with the current balance when the screen loads
   useEffect(() => {
-    if (balance !== undefined && balance !== null) {
-      // setNewBalanceString(balance.toString()); // Uncomment if you want to pre-fill
-    }
-  }, [balance]);
+    const setup = async () => {
+      const { data: user, error } = await supabase.rpc('get_current_user_profile').single()
 
-  const handleSaveBalance = () => {
+      if (error) {
+        console.error(error);
+      }
+
+      if (user) {
+        setBalance(user.current_balance)
+      }
+    }
+
+    setup()
+  }, []);
+
+  const handleSaveBalance = async () => {
     if (!newBalanceString.trim()) {
       Alert.alert('Invalid Input', 'Please enter a valid balance amount.');
       return;
     }
+
     const newBalanceValue = parseFloat(newBalanceString);
-    if (isNaN(newBalanceValue) || newBalanceValue < 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid positive number for the balance.');
+    if (isNaN(newBalanceValue)) {
+      Alert.alert('Invalid Amount', 'Please enter a valid number for the balance.');
       return;
     }
 
-    setBalance(newBalanceValue); // Call the function from your context
-    Alert.alert('Balance Updated', `Your new balance is Php ${newBalanceValue.toFixed(2)}`);
-    navigation.goBack(); // Or navigate to a specific screen e.g., navigation.navigate('HomeTabs');
+    const { data: finalBalance, error } = await supabase.rpc('update_user_balance', { p_amount_to_adjust: newBalanceValue }).single()
+
+    if (error) {
+      Alert.alert('Error', error.message)
+    }
+
+    if (finalBalance) {
+      Alert.alert('Balance Updated', `Your new balance is Php ${finalBalance.toFixed(2)}`);
+      navigation.goBack(); // Or navigate to a specific screen e.g., navigation.navigate('HomeTabs');
+    }
   };
 
   const handleNumberPress = (num) => {
@@ -59,14 +76,13 @@ export default function EditBalanceScreen() {
     setNewBalanceString('');
   };
 
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Edit Balance</Text>
         <TouchableOpacity onPress={handleSaveBalance}>
-          <Ionicons name="checkmark" size={32} color="#60bee0" /> {/* Slightly larger icon */}
+          <Ionicons name="checkmark" size={32} color="#60bee0" />
         </TouchableOpacity>
       </View>
 
@@ -93,12 +109,12 @@ export default function EditBalanceScreen() {
         ))}
         {/* Backspace Key */}
         <TouchableOpacity
-            style={styles.key}
-            onPress={handleClear}
-            onLongPress={handleLongClear} // Optional: long press to clear all
-          >
-            <Ionicons name="backspace-outline" size={28} color="#333" />
-          </TouchableOpacity>
+          style={styles.key}
+          onPress={handleClear}
+          onLongPress={handleLongClear} // Optional: long press to clear all
+        >
+          <Ionicons name="backspace-outline" size={28} color="#333" />
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );

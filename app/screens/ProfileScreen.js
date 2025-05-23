@@ -5,19 +5,23 @@ import { CommonActions } from '@react-navigation/native';
 import { supabase } from '../scripts/supabase';
 
 function formatDate(date) {
-  const dateObject = new Date(date);
-  const correctDateString = dateObject.toLocaleDateString(undefined, { // undefined uses system locale
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  if (date) {
+    const dateObject = new Date(date);
+    const correctDateString = dateObject.toLocaleDateString(undefined, { // undefined uses system locale
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
 
-  return correctDateString
+    return correctDateString
+  } else {
+    return null
+  }
 }
 
 export default function ProfileScreen({ navigation, route }) {
   const [name, setName] = useState('User');
-  const [email, setEmail] = useState('sample.account@gmail.com');
+  const [email, setEmail] = useState('nifty_email@gmail.com');
   const [balance, setBalance] = useState(0);
   const [createdAt, setCreatedAt] = useState('');
   const [latestExpenseDate, setLatestExpenseDate] = useState('');
@@ -40,15 +44,20 @@ export default function ProfileScreen({ navigation, route }) {
     const setup = async () => {
       const { data: user, error } = await supabase.rpc('get_current_user_profile').single()
       const { data: latestExpenseDate, error: latestExpenseError } = await supabase.rpc('get_latest_expense_date').single()
+      const { data: expenses, error: expensesError } = await supabase.rpc('get_user_expenses')
 
-      if (error || latestExpenseError) {
-        console.error(error.message ?? latestExpenseError.message);
+      const isExpense = !latestExpenseDate && latestExpenseDate === null || latestExpenseDate
+
+      if (error || latestExpenseError || expensesError) {
+        console.error(error.message ?? latestExpenseError.message ?? expensesError.message);
       }
 
-      if (user && latestExpenseDate) {
+      if (user && isExpense && expenses) {
+        const runningExpense = expenses.reduce((acc, item) => acc + parseFloat(item.amount || 0), 0);
+
         setEmail(user.profile_email);
         setName(user.profile_username);
-        setBalance(user.current_balance)
+        setBalance(user.current_balance - runningExpense)
         setCreatedAt(formatDate(user.created_at))
         setLatestExpenseDate(formatDate(latestExpenseDate))
       }
@@ -64,12 +73,12 @@ export default function ProfileScreen({ navigation, route }) {
       <Text style={styles.name}>{name}</Text>
       <Text style={styles.email}>{email}</Text>
 
-      <TouchableOpacity
+      {/* <TouchableOpacity
         style={styles.editButton}
         onPress={() => navigation.navigate('EditProfile', { name, email })}
       >
         <Text style={styles.editButtonText}>Edit Profile</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       <View style={styles.detailsBox}>
         <Text style={styles.detailsTitle}>Details</Text>

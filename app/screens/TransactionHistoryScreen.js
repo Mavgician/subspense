@@ -39,7 +39,6 @@ export default function TransactionHistoryScreen() {
     if (error) {
       Alert.alert('Error', error.message)
     }
-    
   };
 
   const cancelDelete = () => {
